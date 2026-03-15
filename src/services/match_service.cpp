@@ -306,6 +306,7 @@ auto match_service::apply_match_effect(std::span<const team> teams, std::span<co
 	// Distribute team deltas to members
 	constexpr double kWeightFloor = 1e-6;
 	constexpr double alpha = 1;
+	constexpr double kMinGain = 5.0; // winning players gain at least this many points
 
 	for (std::size_t ti = 0; ti < N; ++ti) {
 		const double Ts = team_sum[ti];
@@ -326,7 +327,12 @@ auto match_service::apply_match_effect(std::span<const team> teams, std::span<co
 			for (const auto &m : members) {
 				auto it = users_.find(util::id_to_u64(m.id));
 				if (it != users_.end()) {
-					double np = it->second.point + td * even;
+					double player_delta = td * even;
+					if (is_winning_team) {
+						player_delta = std::max(kMinGain, player_delta);
+					}
+
+					double np = it->second.point + player_delta;
 					if (!std::isfinite(np)) {
 						return std::unexpected(type::error{"Numerical instability (NaN/Inf)"});
 					}
@@ -360,7 +366,12 @@ auto match_service::apply_match_effect(std::span<const team> teams, std::span<co
 				auto it = users_.find(util::id_to_u64(m.id));
 				if (it != users_.end()) {
 					const double share = weights[k] / W;
-					double np = it->second.point + td * share;
+					double player_delta = td * share;
+					if (is_winning_team) {
+						player_delta = std::max(kMinGain, player_delta);
+					}
+
+					double np = it->second.point + player_delta;
 					if (!std::isfinite(np)) {
 						return std::unexpected(type::error{"Numerical instability (NaN/Inf)"});
 					}
